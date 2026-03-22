@@ -29,10 +29,14 @@ static void binaryheap_sift_up(struct binaryheap *heap, size_t index)
 /* Fa scendere un nodo scegliendo ogni volta il figlio più piccolo. */
 static void binaryheap_sift_down(struct binaryheap *heap, size_t index)
 {
+    size_t left,
+           right,
+           smallest;
+
     for (;;) {
-        size_t left = 2 * index + 1;
-        size_t right = left + 1;
-        size_t smallest = index;
+        left = 2 * index + 1,
+        right = left + 1,
+        smallest = index;
 
         if (left < heap->size && heap->cmp(heap->data[left], heap->data[smallest]) < 0)
             smallest = left;
