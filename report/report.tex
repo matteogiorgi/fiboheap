@@ -1,0 +1,530 @@
+\documentclass[a4paper,12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[italian]{babel}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codegray},
+  frame=single,
+  breaklines=true,
+  columns=fullflexible,
+  xleftmargin=\parindent,
+  xrightmargin=\parindent
+}
+
+\title{Relazione Tecnica sullo Sviluppo di una Binary Heap Generica in C}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Introduzione}
+
+L'obiettivo del lavoro svolto in questa directory è stato progettare e implementare una struttura dati di tipo \emph{binary heap} generica in linguaggio C, prendendo come punto di partenza un'analisi dei sorgenti della \texttt{glibc} 2.36 presenti nel progetto tramite symlink. Il risultato finale comprende:
+
+\begin{itemize}[leftmargin=*]
+    \item un'implementazione generica della heap basata su \texttt{void **} e funzione di confronto;
+    \item un file header con l'interfaccia pubblica;
+    \item un programma dimostrativo eseguibile;
+    \item un file di test separato con controlli automatici;
+    \item un \texttt{Makefile} per build, esecuzione della demo e lancio dei test.
+\end{itemize}
+
+La richiesta iniziale non era soltanto ``scrivere una heap'', ma capire prima se all'interno della \texttt{glibc} fosse già presente una struttura dati simile o riusabile. Per questo motivo il lavoro è partito da una fase di esplorazione del codice sorgente, seguita poi da una fase di progettazione e infine dalla realizzazione vera e propria.
+
+\section{Analisi Preliminare dei Sorgenti glibc}
+
+\subsection{Accesso ai sorgenti}
+
+All'interno della directory di lavoro era presente un symlink chiamato \texttt{glibc-2.36}, puntante ai sorgenti reali della libreria GNU C. La prima attività è consistita nel verificare:
+
+\begin{itemize}[leftmargin=*]
+    \item che il symlink fosse leggibile;
+    \item che il target fosse effettivamente accessibile dal workspace;
+    \item che la directory contenesse i file tipici dei sorgenti \texttt{glibc}, come \texttt{configure}, \texttt{Makerules}, \texttt{README} e \texttt{COPYING}.
+\end{itemize}
+
+La verifica ha confermato che il sorgente era disponibile e ispezionabile.
+
+\subsection{Ricerca di una binary heap o priority queue già presente}
+
+La seconda fase è stata una ricerca mirata nei sorgenti \texttt{glibc} per stabilire se esistesse già:
+
+\begin{itemize}[leftmargin=*]
+    \item una struttura dati dichiarata esplicitamente come \emph{binary heap};
+    \item una \emph{priority queue} riusabile;
+    \item una utility generica che implementasse operazioni equivalenti;
+    \item un'implementazione locale che potesse essere estratta o adattata.
+\end{itemize}
+
+La ricerca è stata condotta usando parole chiave come:
+
+\begin{itemize}[leftmargin=*]
+    \item \texttt{binary heap};
+    \item \texttt{priority queue}, \texttt{priority\_queue}, \texttt{pqueue}, \texttt{pq};
+    \item \texttt{heapify}, \texttt{sift\_down}, \texttt{sift\_up};
+    \item nomi file contenenti \texttt{heap}, \texttt{priority}, \texttt{queue}.
+\end{itemize}
+
+\subsection{Esito della ricerca}
+
+La conclusione dell'analisi è stata netta:
+
+\begin{itemize}[leftmargin=*]
+    \item nei sorgenti \texttt{glibc-2.36} non è presente una \emph{priority queue} generica pronta all'uso;
+    \item non è presente una struttura dati esposta o documentata come \emph{binary heap} riusabile;
+    \item esistono però due elementi interessanti:
+          \begin{itemize}
+              \item una coda ordinata per timer, implementata come lista ordinata;
+              \item un'implementazione locale di \emph{heapsort} che utilizza esplicitamente la proprietà di heap binario su array.
+          \end{itemize}
+\end{itemize}
+
+\subsection{La coda ordinata dei timer}
+
+Nel file \texttt{fbtl/sysdeps/pthread/timer\_routines.c} è presente una struttura che, a prima vista, ricorda una priority queue: i timer vengono inseriti in ordine di scadenza. Tuttavia l'implementazione non usa un heap, ma una lista doppiamente collegata ordinata. L'inserimento avviene tramite scansione lineare fino al punto corretto.
+
+Questo approccio ha caratteristiche diverse rispetto a una binary heap:
+
+\begin{itemize}[leftmargin=*]
+    \item inserimento in tempo lineare \(O(n)\);
+    \item accesso al minimo in tempo costante \(O(1)\), essendo in testa;
+    \item nessuna rappresentazione su array;
+    \item nessun \emph{sift up} o \emph{sift down}.
+\end{itemize}
+
+Per questo motivo tale codice non era un punto di partenza adeguato per implementare una heap binaria vera e propria.
+
+\subsection{Il riferimento utile: \texttt{frame\_heapsort}}
+
+Nel file \texttt{sysdeps/generic/unwind-dw2-fde.c} è stata individuata la funzione \texttt{frame\_heapsort}, che usa chiaramente la rappresentazione classica di un heap binario su array:
+
+\begin{itemize}[leftmargin=*]
+    \item figlio sinistro all'indice \(2i + 1\);
+    \item figlio destro all'indice \(2i + 2\);
+    \item ripristino della proprietà di heap tramite scambi successivi;
+    \item selezione del figlio con priorità maggiore per mantenere l'invariante.
+\end{itemize}
+
+Pur essendo specializzata per il contesto interno della \texttt{glibc} e per una funzione di ordinamento, questa implementazione conteneva l'idea algoritmica giusta per derivare una struttura dati generica.
+
+\section{Scelte Progettuali}
+
+\subsection{Obiettivo della nuova implementazione}
+
+L'obiettivo è stato definire una heap riusabile in C con queste proprietà:
+
+\begin{itemize}[leftmargin=*]
+    \item genericità sugli elementi memorizzati;
+    \item separazione tra struttura dati e criterio di ordinamento;
+    \item API semplice e minimale;
+    \item dipendenze standard minime;
+    \item integrazione facile con il \texttt{Makefile}.
+\end{itemize}
+
+\subsection{Rappresentazione dei dati}
+
+La heap è stata implementata come array dinamico di puntatori generici:
+
+\begin{lstlisting}[language=C]
+struct binaryheap
+{
+    void **data;
+    size_t size;
+    size_t capacity;
+    binaryheap_cmp_fn cmp;
+};
+\end{lstlisting}
+
+Questa scelta comporta diversi vantaggi:
+
+\begin{itemize}[leftmargin=*]
+    \item la struttura non copia gli oggetti, ma memorizza puntatori;
+    \item può contenere elementi di qualsiasi tipo;
+    \item il criterio di priorità è delegato a una funzione di confronto;
+    \item l'allocazione e la crescita della memoria sono gestite in modo centralizzato.
+\end{itemize}
+
+\subsection{Convenzione del comparatore}
+
+Il comparatore segue una convenzione in stile \texttt{qsort}:
+
+\begin{itemize}[leftmargin=*]
+    \item ritorno \(< 0\): il primo argomento ha priorità più alta;
+    \item ritorno \(= 0\): i due elementi sono equivalenti;
+    \item ritorno \(> 0\): il secondo argomento ha priorità più alta.
+\end{itemize}
+
+Con questa convenzione, l'implementazione realizzata si comporta come una \emph{min-heap}: l'elemento ``più piccolò' secondo il comparatore risale verso la radice.
+
+\subsection{Perchè una min-heap}
+
+La scelta di implementare una min-heap e non una max-heap deriva da motivi pragmatici:
+
+\begin{itemize}[leftmargin=*]
+    \item molti usi tipici della priority queue richiedono l'estrazione del minimo;
+    \item il comportamento è naturale se il comparatore ordina in senso crescente;
+    \item passare da min-heap a max-heap è comunque banale: basta invertire la logica del comparatore.
+\end{itemize}
+
+\section{Implementazione del File \texttt{binaryheap.c}}
+
+\subsection{Interfaccia pubblica}
+
+Per rendere l'implementazione usabile sia dal programma demo sia dal file di test, è stato creato anche il file \texttt{binaryheap.h}, che espone:
+
+\begin{itemize}[leftmargin=*]
+    \item il tipo funzione \texttt{binaryheap\_cmp\_fn};
+    \item la struttura \texttt{struct binaryheap};
+    \item le funzioni pubbliche della heap.
+\end{itemize}
+
+Le operazioni esposte sono:
+
+\begin{itemize}[leftmargin=*]
+    \item \texttt{binaryheap\_init};
+    \item \texttt{binaryheap\_destroy};
+    \item \texttt{binaryheap\_reserve};
+    \item \texttt{binaryheap\_push};
+    \item \texttt{binaryheap\_peek};
+    \item \texttt{binaryheap\_pop};
+    \item \texttt{binaryheap\_size};
+    \item \texttt{binaryheap\_empty};
+    \item \texttt{binaryheap\_build}.
+\end{itemize}
+
+\subsection{\texttt{binaryheap\_init}}
+
+Questa funzione inizializza la struttura in uno stato vuoto:
+
+\begin{itemize}[leftmargin=*]
+    \item puntatore dati a \texttt{NULL};
+    \item dimensione a zero;
+    \item capacità a zero;
+    \item salvataggio del comparatore.
+\end{itemize}
+
+L'inizializzazione non alloca memoria subito. La memoria viene richiesta solo al primo inserimento o in seguito a una \texttt{reserve}.
+
+\subsection{\texttt{binaryheap\_destroy}}
+
+Questa funzione libera la memoria allocata dinamicamente per l'array interno. Non dealloca gli elementi puntati, perchè la heap non ne è proprietaria. Questa è una scelta intenzionale: la struttura gestisce i puntatori, non il ciclo di vita degli oggetti referenziati.
+
+\subsection{\texttt{binaryheap\_reserve}}
+
+Questa funzione permette di preallocare memoria per almeno un certo numero di elementi. Se la capacità richiesta è inferiore o uguale a quella già disponibile, non viene eseguita alcuna riallocazione.
+
+Se invece serve aumentare la memoria:
+
+\begin{itemize}[leftmargin=*]
+    \item viene invocata \texttt{realloc};
+    \item in caso di successo si aggiorna la capacità;
+    \item in caso di fallimento si ritorna \texttt{-1}.
+\end{itemize}
+
+La funzione è utile sia per ottimizzazione, sia come building block per \texttt{push}.
+
+\subsection{\texttt{binaryheap\_push}}
+
+L'inserimento di un elemento segue due passi:
+
+\begin{enumerate}[leftmargin=*]
+    \item se necessario, espande la capacità dell'array;
+    \item inserisce il nuovo elemento in fondo e lo fa risalire tramite \emph{sift up}.
+\end{enumerate}
+
+La crescita della capacità segue una politica geometrica:
+
+\begin{itemize}[leftmargin=*]
+    \item da \(0\) a \(8\) elementi alla prima espansione;
+    \item successivamente raddoppio della capacità.
+\end{itemize}
+
+Questa scelta riduce il numero di riallocazioni e fornisce costo ammortizzato efficiente sugli inserimenti.
+
+\subsection{\texttt{binaryheap\_peek}}
+
+Restituisce l'elemento in radice senza rimuoverlo. Se la heap è vuota, ritorna \texttt{NULL}. In una min-heap questo elemento corrisponde al minimo secondo il comparatore.
+
+\subsection{\texttt{binaryheap\_pop}}
+
+L'estrazione dell'elemento in testa avviene come segue:
+
+\begin{enumerate}[leftmargin=*]
+    \item salva l'elemento in radice;
+    \item sposta l'ultimo elemento della heap in posizione \(0\);
+    \item decrementa la dimensione;
+    \item ripristina la proprietà di heap con \emph{sift down}.
+\end{enumerate}
+
+Se la heap è vuota, ritorna \texttt{NULL}.
+
+\subsection{\texttt{binaryheap\_size} e \texttt{binaryheap\_empty}}
+
+Queste funzioni forniscono introspezione minima sulla struttura:
+
+\begin{itemize}[leftmargin=*]
+    \item \texttt{binaryheap\_size} restituisce il numero di elementi;
+    \item \texttt{binaryheap\_empty} ritorna vero se la heap è vuota.
+\end{itemize}
+
+\subsection{\texttt{binaryheap\_build}}
+
+Questa funzione costruisce una heap da un array di puntatori già esistente. Invece di inserire gli elementi uno a uno, applica una costruzione bottom-up:
+
+\begin{itemize}[leftmargin=*]
+    \item inizializza i campi della struttura;
+    \item parte dall'ultimo nodo interno;
+    \item applica \emph{sift down} fino alla radice.
+\end{itemize}
+
+Questa tecnica permette una costruzione in tempo lineare \(O(n)\), più efficiente rispetto a \(n\) inserimenti consecutivi.
+
+\section{Dettagli Algoritmici}
+
+\subsection{\texttt{binaryheap\_sift\_up}}
+
+L'operazione di risalita confronta un nodo con il padre:
+
+\begin{itemize}[leftmargin=*]
+    \item se il nodo ha priorità più alta del padre, avviene uno scambio;
+    \item il processo continua finchè l'invariante di heap non è ristabilito o si raggiunge la radice.
+\end{itemize}
+
+Nel caso peggiore, il numero di passi è proporzionale all'altezza dell'albero, quindi \(O(\log n)\).
+
+\subsection{\texttt{binaryheap\_sift\_down}}
+
+L'operazione di discesa confronta un nodo con i figli:
+
+\begin{itemize}[leftmargin=*]
+    \item viene scelto il figlio con priorità maggiore tra i due figli disponibili;
+    \item se tale figlio ha priorità maggiore del nodo corrente, i due vengono scambiati;
+    \item l'algoritmo continua dal nuovo indice.
+\end{itemize}
+
+Anche in questo caso il costo nel caso peggiore è \(O(\log n)\).
+
+\subsection{Invariante della struttura}
+
+L'invariante fondamentale della heap è:
+
+\[
+    \text{per ogni indice } i, \quad data[i] \leq data[2i+1] \text{ e } data[i] \leq data[2i+2]
+\]
+
+naturalmente nel senso definito dal comparatore.
+
+Questo garantisce che la radice contenga sempre l'elemento con priorità più alta nel senso scelto dalla struttura, cioè il minimo nel caso corrente.
+
+\section{Complessità Computazionale}
+
+Le complessità delle operazioni principali sono:
+
+\begin{center}
+    \begin{tabular}{|l|c|}
+        \hline
+        Operazione                   & Complessità                \\
+        \hline
+        \texttt{binaryheap\_init}    & \(O(1)\)                   \\
+        \texttt{binaryheap\_destroy} & \(O(1)\)                   \\
+        \texttt{binaryheap\_peek}    & \(O(1)\)                   \\
+        \texttt{binaryheap\_empty}   & \(O(1)\)                   \\
+        \texttt{binaryheap\_size}    & \(O(1)\)                   \\
+        \texttt{binaryheap\_push}    & \(O(\log n)\) ammortizzato \\
+        \texttt{binaryheap\_pop}     & \(O(\log n)\)              \\
+        \texttt{binaryheap\_build}   & \(O(n)\)                   \\
+        \hline
+    \end{tabular}
+\end{center}
+
+L'uso di un array dinamico rende inoltre l'accesso ai nodi molto efficiente dal punto di vista cache, rispetto a strutture basate su puntatori espliciti a figli e genitori.
+
+\section{Programma Demo}
+
+\subsection{Scopo di \texttt{binaryheap\_demo.c}}
+
+È stato creato un programma dimostrativo, \texttt{binaryheap\_demo.c}, per mostrare l'uso base della struttura:
+
+\begin{itemize}[leftmargin=*]
+    \item definizione di un comparatore per interi;
+    \item inizializzazione della heap;
+    \item inserimento di alcuni valori;
+    \item estrazione in ordine crescente;
+    \item stampa dei risultati.
+\end{itemize}
+
+Questo file non nasce come test formale, ma come esempio d'uso e verifica manuale rapida.
+
+\subsection{Differenza tra demo e test}
+
+La demo e il test hanno scopi diversi:
+
+\begin{itemize}[leftmargin=*]
+    \item la demo mostra \emph{come usare} l'API;
+    \item il test controlla \emph{se l'API funziona correttamente}.
+\end{itemize}
+
+Per questo motivo la demo è stata lasciata separata dal file di test.
+
+\section{Testing}
+
+\subsection{Motivazione}
+
+Dopo la demo, è emersa la necessità di avere un file di test separato. Il motivo principale è che una demo può dare l'impressione che il codice funzioni, ma non fornisce garanzie sistematiche. Un test dedicato invece:
+
+\begin{itemize}[leftmargin=*]
+    \item verifica più scenari;
+    \item fallisce automaticamente in presenza di errori;
+    \item è integrabile in un workflow di build;
+    \item può essere esteso facilmente.
+\end{itemize}
+
+\subsection{File \texttt{test\_binaryheap.c}}
+
+È stato quindi aggiunto il file \texttt{test\_binaryheap.c}, costruito con \texttt{assert}. I casi coperti sono:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{heap vuota}: verifica di \texttt{empty}, \texttt{size}, \texttt{peek} e \texttt{pop} su struttura inizializzata ma senza elementi;
+    \item \textbf{ordine di inserimento/estrazione}: inserimento di una sequenza non ordinata e controllo dell'estrazione in ordine crescente;
+    \item \textbf{duplicati}: verifica del corretto comportamento in presenza di valori ripetuti;
+    \item \textbf{build}: costruzione di una heap a partire da un array già esistente e verifica dell'ordine finale.
+\end{itemize}
+
+\subsection{Output dei test}
+
+Inizialmente il file di test non produceva output in caso di successo, comportamento corretto ma poco evidente a schermo. Successivamente è stato aggiunto un messaggio finale:
+
+\begin{lstlisting}
+All tests passed
+\end{lstlisting}
+
+In questo modo:
+
+\begin{itemize}[leftmargin=*]
+    \item se un \texttt{assert} fallisce, il programma termina con errore;
+    \item se tutto va bene, il test stampa esplicitamente il successo.
+\end{itemize}
+
+\section{Build Automation con Makefile}
+
+\subsection{Obiettivi del Makefile}
+
+Il \texttt{Makefile} è stato creato per gestire in modo semplice e ripetibile le attività essenziali:
+
+\begin{itemize}[leftmargin=*]
+    \item compilazione del file oggetto;
+    \item compilazione ed esecuzione della demo;
+    \item compilazione ed esecuzione dei test;
+    \item pulizia dei file generati.
+\end{itemize}
+
+\subsection{Target disponibili}
+
+I target principali sono:
+
+\begin{itemize}[leftmargin=*]
+    \item \texttt{make}: compila \texttt{binaryheap.o};
+    \item \texttt{make run}: compila ed esegue \texttt{binaryheap\_demo};
+    \item \texttt{make test}: compila ed esegue \texttt{test\_binaryheap};
+    \item \texttt{make clean}: rimuove artefatti di compilazione ed eseguibili.
+\end{itemize}
+
+\subsection{Scelta delle flag di compilazione}
+
+Le flag configurate sono:
+
+\begin{lstlisting}
+-std=c11 -Wall -Wextra -pedantic
+\end{lstlisting}
+
+Su richiesta esplicita, non sono state abilitate ottimizzazioni del compilatore. Questa scelta è utile in una fase didattica o di sviluppo iniziale per diversi motivi:
+
+\begin{itemize}[leftmargin=*]
+    \item mantiene il comportamento più prevedibile;
+    \item facilita il debugging;
+    \item evita trasformazioni aggressive che potrebbero complicare l'analisi del codice generato.
+\end{itemize}
+
+\section{Struttura Finale dei File}
+
+Al termine del lavoro, i file principali del progetto risultano essere:
+
+\begin{itemize}[leftmargin=*]
+    \item \texttt{binaryheap.c}: implementazione della struttura dati;
+    \item \texttt{binaryheap.h}: interfaccia pubblica;
+    \item \texttt{binaryheap\_demo.c}: programma dimostrativo;
+    \item \texttt{test\_binaryheap.c}: file di test automatici;
+    \item \texttt{Makefile}: build automation;
+    \item \texttt{report/report.tex}: questa relazione.
+\end{itemize}
+
+\section{Valutazione del Lavoro Svolto}
+
+\subsection{Risultati raggiunti}
+
+Il lavoro ha prodotto una struttura dati funzionante, generica e testata, costruita a partire da un'analisi concreta dei sorgenti \texttt{glibc}. Gli obiettivi principali sono stati raggiunti:
+
+\begin{itemize}[leftmargin=*]
+    \item identificazione dell'assenza di una priority queue generica in \texttt{glibc};
+    \item individuazione di un riferimento algoritmico utile;
+    \item implementazione di una min-heap generica in C;
+    \item predisposizione di un ambiente minimo di build e test.
+\end{itemize}
+
+\subsection{Limiti attuali}
+
+La soluzione attuale è adeguata per lo scopo richiesto, ma presenta alcuni limiti naturali:
+
+\begin{itemize}[leftmargin=*]
+    \item non gestisce direttamente la deallocazione degli oggetti memorizzati;
+    \item non include operazioni come \texttt{decrease-key}, \texttt{remove} arbitrario o aggiornamento di priorità;
+    \item non è presente una suite di test ancora più estesa con scenari stressati o casuali;
+    \item non è stata prodotta una libreria statica o condivisa separata.
+\end{itemize}
+
+\subsection{Possibili estensioni}
+
+Tra le evoluzioni più naturali del progetto si possono indicare:
+
+\begin{itemize}[leftmargin=*]
+    \item aggiunta di test con sequenze miste di \texttt{push} e \texttt{pop};
+    \item supporto a max-heap tramite wrapper o comparatori dedicati;
+    \item introduzione di un indice esterno per supportare \texttt{decrease-key};
+    \item produzione di una libreria \texttt{.a};
+    \item documentazione aggiuntiva dell'API in formato header commentato o manuale.
+\end{itemize}
+
+\section{Conclusione}
+
+L'attività svolta ha seguito un percorso tecnico coerente:
+
+\begin{enumerate}[leftmargin=*]
+    \item verifica della disponibilità dei sorgenti \texttt{glibc};
+    \item analisi per cercare strutture dati equivalenti a una priority queue o binary heap;
+    \item identificazione di \texttt{frame\_heapsort} come miglior riferimento algoritmico;
+    \item progettazione di una heap generica basata su \texttt{void **} e comparatore;
+    \item realizzazione dell'implementazione e della relativa interfaccia;
+    \item aggiunta di demo, test e automazione della build;
+    \item stesura della presente relazione.
+\end{enumerate}
+
+Il risultato è un piccolo progetto C pulito e coerente, nato da un'esigenza pratica e sviluppato con un approccio incrementale: prima l'analisi, poi la progettazione, infine implementazione e verifica.
+
+\end{document}
