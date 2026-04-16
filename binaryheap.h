@@ -6,8 +6,7 @@
 
 
 typedef int (*binaryheap_cmp_fn)(const void *lhs, const void *rhs);
-struct binaryheap
-{
+struct binaryheap {
     void **data;
     size_t size;
     size_t capacity;

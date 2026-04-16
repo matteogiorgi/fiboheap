@@ -1,0 +1,92 @@
+intN_t(3type)                                                                                              intN_t(3type)
+
+NNAAMMEE
+       intN_t, int8_t, int16_t, int32_t, int64_t, uintN_t, uint8_t, uint16_t, uint32_t, uint64_t - fixed-width basic in‐
+       teger types
+
+LLIIBBRRAARRYY
+       Standard C library (_l_i_b_c)
+
+SSYYNNOOPPSSIISS
+       ##iinncclluuddee <<ssttddiinntt..hh>>
+
+       ttyyppeeddeeff /* ... */ iinntt88__tt;;
+       ttyyppeeddeeff /* ... */ iinntt1166__tt;;
+       ttyyppeeddeeff /* ... */ iinntt3322__tt;;
+       ttyyppeeddeeff /* ... */ iinntt6644__tt;;
+
+       ttyyppeeddeeff /* ... */ uuiinntt88__tt;;
+       ttyyppeeddeeff /* ... */ uuiinntt1166__tt;;
+       ttyyppeeddeeff /* ... */ uuiinntt3322__tt;;
+       ttyyppeeddeeff /* ... */ uuiinntt6644__tt;;
+
+       ##ddeeffiinnee IINNTT88__WWIIDDTTHH   88
+       ##ddeeffiinnee IINNTT1166__WWIIDDTTHH  1166
+       ##ddeeffiinnee IINNTT3322__WWIIDDTTHH  3322
+       ##ddeeffiinnee IINNTT6644__WWIIDDTTHH  6644
+
+       ##ddeeffiinnee UUIINNTT88__WWIIDDTTHH  88
+       ##ddeeffiinnee UUIINNTT1166__WWIIDDTTHH 1166
+       ##ddeeffiinnee UUIINNTT3322__WWIIDDTTHH 3322
+       ##ddeeffiinnee UUIINNTT6644__WWIIDDTTHH 6644
+
+       ##ddeeffiinnee IINNTT88__MMAAXX     /*  2**(INT8_WIDTH - 1) - 1   */
+       ##ddeeffiinnee IINNTT1166__MMAAXX    /*  2**(INT16_WIDTH - 1) - 1  */
+       ##ddeeffiinnee IINNTT3322__MMAAXX    /*  2**(INT32_WIDTH - 1) - 1  */
+       ##ddeeffiinnee IINNTT6644__MMAAXX    /*  2**(INT64_WIDTH - 1) - 1  */
+
+       ##ddeeffiinnee IINNTT88__MMIINN     /*  - 2**(INT8_WIDTH - 1)     */
+       ##ddeeffiinnee IINNTT1166__MMIINN    /*  - 2**(INT16_WIDTH - 1)    */
+       ##ddeeffiinnee IINNTT3322__MMIINN    /*  - 2**(INT32_WIDTH - 1)    */
+       ##ddeeffiinnee IINNTT6644__MMIINN    /*  - 2**(INT64_WIDTH - 1)    */
+
+       ##ddeeffiinnee UUIINNTT88__MMAAXX    /*  2**INT8_WIDTH - 1         */
+       ##ddeeffiinnee UUIINNTT1166__MMAAXX   /*  2**INT16_WIDTH - 1        */
+       ##ddeeffiinnee UUIINNTT3322__MMAAXX   /*  2**INT32_WIDTH - 1        */
+       ##ddeeffiinnee UUIINNTT6644__MMAAXX   /*  2**INT64_WIDTH - 1        */
+
+       ##ddeeffiinnee IINNTT88__CC((_c))    _c #### /* ... */
+       ##ddeeffiinnee IINNTT1166__CC((_c))   _c #### /* ... */
+       ##ddeeffiinnee IINNTT3322__CC((_c))   _c #### /* ... */
+       ##ddeeffiinnee IINNTT6644__CC((_c))   _c #### /* ... */
+
+       ##ddeeffiinnee UUIINNTT88__CC((_c))   _c #### /* ... */
+       ##ddeeffiinnee UUIINNTT1166__CC((_c))  _c #### /* ... */
+       ##ddeeffiinnee UUIINNTT3322__CC((_c))  _c #### /* ... */
+       ##ddeeffiinnee UUIINNTT6644__CC((_c))  _c #### /* ... */
+
+DDEESSCCRRIIPPTTIIOONN
+       _i_n_tN___t are signed integer types of a fixed width of exactly N bits, _N being the value specified in its type name.
+       They  are  be capable of storing values in the range [IINNTT_N__MMIINN, IINNTT_N__MMAAXX], substituting _N by the appropriate num‐
+       ber.
+
+       _u_i_n_tN___t are unsigned integer types of a fixed width of exactly N bits, N being the value specified  in  its  type
+       name.  They are capable of storing values in the range [00, UUIINNTT_N__MMAAXX], substituting _N by the appropriate number.
+
+       According to POSIX, [_u]_i_n_t_8___t, [_u]_i_n_t_1_6___t, and [_u]_i_n_t_3_2___t are required; [_u]_i_n_t_6_4___t are only required in implemen‐
+       tations that provide integer types with width 64; and all other types of this form are optional.
+
+       The macros [UU]IINNTT_N__WWIIDDTTHH expand to the width in bits of these types (_N).
+
+       The macros [UU]IINNTT_N__MMAAXX expand to the maximum value that these types can hold.
+
+       The macros IINNTT_N__MMIINN expand to the minimum value that these types can hold.
+
+       The macros [UU]IINNTT_N__CC() expand their argument to an integer constant of type [_u]_i_n_tN___t.
+
+       The length modifiers for the [_u]_i_n_tN___t types for the pprriinnttff(3) family of functions are expanded by macros of  the
+       forms  PPRRIIdd_N,  PPRRIIii_N, PPRRIIuu_N, and PPRRIIxx_N (defined in _<_i_n_t_t_y_p_e_s_._h_>); resulting for example in %%""PPRRIIdd6644"" or %%""PPRRIIii6644""
+       for printing _i_n_t_6_4___t values.  The length modifiers for the [_u]_i_n_tN___t types for the ssccaannff(3) family  of  functions
+       are  expanded by macros of the forms SSCCNNdd_N, SSCCNNii_N, SSCCNNuu_N, and SSCCNNxx_N_, (defined in _<_i_n_t_t_y_p_e_s_._h_>); resulting for ex‐
+       ample in %%""SSCCNNuu88"" or %%""SSCCNNxx88"" for scanning _u_i_n_t_8___t values.
+
+SSTTAANNDDAARRDDSS
+       C99 and later; POSIX.1-2001 and later.
+
+NNOOTTEESS
+       The following header also provides these types: _<_i_n_t_t_y_p_e_s_._h_>.  _<_a_r_p_a_/_i_n_e_t_._h_> also provides _u_i_n_t_1_6___t and _u_i_n_t_3_2___t.
+
+SSEEEE AALLSSOO
+       iinnttmmaaxx__tt(3type), iinnttppttrr__tt(3type), pprriinnttff(3)
+
+Linux man-pages 6.03                                   2023-01-31                                          intN_t(3type)

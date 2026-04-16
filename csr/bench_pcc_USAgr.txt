@@ -1,0 +1,9 @@
+=== CSR benchmark ===
+nodes             : 23947347
+edges             : 58333344
+load time         : 14.912590 s
+degree-scan time  : 0.041620 s
+edge-scan time    : 1.466620 s  (5 repeats)
+total time        : 16.420831 s
+degree checksum   : 58333344
+edge checksum     : 1392393014603376

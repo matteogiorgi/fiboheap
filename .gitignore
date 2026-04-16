@@ -1,0 +1,8 @@
+tags
+*~
+*.gr
+*.gz
+report/*
+!report/*.tex
+.vscode/*
+.codex
