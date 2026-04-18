@@ -17,7 +17,7 @@ static void binaryheap_sift_up(struct binaryheap *heap, size_t index)
     while (index > 0) {
         size_t parent = (index - 1) / 2;
 
-        if (heap->cmp (heap->data[index], heap->data[parent]) >= 0)
+        if (heap->cmp(heap->data[index], heap->data[parent]) >= 0)
             break;
 
         binaryheap_swap(&heap->data[index], &heap->data[parent]);
@@ -29,14 +29,10 @@ static void binaryheap_sift_up(struct binaryheap *heap, size_t index)
 /* Fa scendere un nodo scegliendo ogni volta il figlio più piccolo. */
 static void binaryheap_sift_down(struct binaryheap *heap, size_t index)
 {
-    size_t left,
-           right,
-           smallest;
+    size_t left, right, smallest;
 
     for (;;) {
-        left = 2 * index + 1,
-        right = left + 1,
-        smallest = index;
+        left = 2 * index + 1, right = left + 1, smallest = index;
 
         if (left < heap->size && heap->cmp(heap->data[left], heap->data[smallest]) < 0)
             smallest = left;
@@ -64,7 +60,7 @@ void binaryheap_init(struct binaryheap *heap, binaryheap_cmp_fn cmp)
 /* Libera il buffer interno della heap senza deallocare gli elementi puntati. */
 void binaryheap_destroy(struct binaryheap *heap)
 {
-    free (heap->data);
+    free(heap->data);
     heap->data = NULL;
     heap->size = 0;
     heap->capacity = 0;
@@ -79,7 +75,7 @@ int binaryheap_reserve(struct binaryheap *heap, size_t capacity)
 
     if (capacity <= heap->capacity)
         return 0;
-    if ((new_data = realloc(heap->data, capacity * sizeof (*heap->data))) == NULL)
+    if ((new_data = realloc(heap->data, capacity * sizeof(*heap->data))) == NULL)
         return -1;
 
     heap->data = new_data;
@@ -100,7 +96,7 @@ int binaryheap_push(struct binaryheap *heap, void *item)
     }
 
     heap->data[heap->size] = item;
-    binaryheap_sift_up (heap, heap->size);
+    binaryheap_sift_up(heap, heap->size);
     heap->size++;
     return 0;
 }
@@ -129,7 +125,7 @@ void *binaryheap_pop(struct binaryheap *heap)
 
     if (heap->size > 0) {
         heap->data[0] = heap->data[heap->size];
-        binaryheap_sift_down (heap, 0);
+        binaryheap_sift_down(heap, 0);
     }
 
     return item;
@@ -164,5 +160,5 @@ void binaryheap_build(struct binaryheap *heap, void **items, size_t count, binar
         return;
 
     for (index = count / 2; index > 0; index--)
-        binaryheap_sift_down (heap, index - 1);
+        binaryheap_sift_down(heap, index - 1);
 }
