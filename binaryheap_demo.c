@@ -19,7 +19,7 @@ static int int_cmp(const void *lhs, const void *rhs)
 int main(void)
 {
     struct binaryheap heap;
-    int values[] = {7, 3, 9, 1, 4, 8, 2};
+    int values[] = { 7, 3, 9, 1, 4, 8, 2 };
     size_t i;
 
     binaryheap_init(&heap, int_cmp);
